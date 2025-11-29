@@ -1,0 +1,899 @@
+diff --git a/README.md b/README.md
+index e215bc4..8dcf4d7 100644
+--- a/README.md
++++ b/README.md
+@@ -34,3 +34,33 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
+ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
++
++## Repository status and pushing changes
++
++This project currently has no Git remotes configured. All changes live locally on the `work` branch until you add a remote and push them. To publish the existing commits to your own GitHub repository:
++
++1. Create or identify a repo URL (e.g., `git@github.com:your-org/your-repo.git`).
++2. Add it as the `origin` remote:
++
++   ```bash
++   git remote add origin <repo-url>
++   ```
++
++3. Push the current branch:
++
++   ```bash
++   git push -u origin work
++   ```
++
++Run `git remote -v` anytime to confirm which remotes are configured.
++
++To automate the same flow, use the helper script with explicit flags or the npm alias:
++
++```bash
++./scripts/push-to-github.sh --repo git@github.com:your-org/your-repo.git --branch work
++# or
++REPO_URL=git@github.com:your-org/your-repo.git npm run push:github -- --branch work
++```
++
++The script will add the remote if missing and push the currently checked-out branch (default is `work`).
+diff --git a/package.json b/package.json
+index 99b7845..5ac8ca8 100644
+--- a/package.json
++++ b/package.json
+@@ -6,7 +6,8 @@
+     "dev": "next dev",
+     "build": "next build",
+     "start": "next start",
+-    "lint": "eslint"
++    "lint": "eslint",
++    "push:github": "./scripts/push-to-github.sh"
+   },
+   "dependencies": {
+     "framer-motion": "^12.23.24",
+diff --git a/scripts/push-to-github.sh b/scripts/push-to-github.sh
+new file mode 100755
+index 0000000..ccf0127
+--- /dev/null
++++ b/scripts/push-to-github.sh
+@@ -0,0 +1,72 @@
++#!/usr/bin/env bash
++# Helper script to push the current branch to a GitHub remote.
++# Usage:
++#   ./scripts/push-to-github.sh --repo git@github.com:your-org/your-repo.git [--branch main] [--remote origin]
++# Environment variable fallback:
++#   REPO_URL (if --repo not provided)
++#   REMOTE_NAME (default: origin)
++#   BRANCH (default: current checked-out branch)
++set -euo pipefail
++
++usage() {
++  cat <<'MSG'
++Usage: ./scripts/push-to-github.sh --repo <git-url> [--branch <branch>] [--remote <name>]
++Options:
++  --repo, -r    Git remote URL (falls back to REPO_URL env)
++  --branch, -b  Branch to push (defaults to current branch)
++  --remote      Remote name to use/create (default: origin or REMOTE_NAME env)
++MSG
++}
++
++REMOTE_NAME="${REMOTE_NAME:-origin}"
++BRANCH="${BRANCH:-}"
++REPO_URL="${REPO_URL:-}"
++
++while [[ $# -gt 0 ]]; do
++  case "$1" in
++    --repo|-r)
++      REPO_URL="${2:-}"
++      shift 2
++      ;;
++    --branch|-b)
++      BRANCH="${2:-}"
++      shift 2
++      ;;
++    --remote)
++      REMOTE_NAME="${2:-}"
++      shift 2
++      ;;
++    -h|--help)
++      usage
++      exit 0
++      ;;
++    *)
++      echo "Unknown option: $1" >&2
++      usage >&2
++      exit 1
++      ;;
++  esac
++done
++
++if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
++  echo "Error: must be run inside a git repository." >&2
++  exit 1
++fi
++
++CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
++BRANCH="${BRANCH:-$CURRENT_BRANCH}"
++
++if [[ -z "${REPO_URL}" ]] && ! git remote get-url "${REMOTE_NAME}" >/dev/null 2>&1; then
++  cat >&2 <<'MSG'
++Error: no remote configured and REPO_URL is missing.
++Set REPO_URL to your GitHub repository URL, e.g.:
++  REPO_URL=git@github.com:your-org/your-repo.git ./scripts/push-to-github.sh
++MSG
++  exit 1
++fi
++
++if ! git remote get-url "${REMOTE_NAME}" >/dev/null 2>&1; then
++  git remote add "${REMOTE_NAME}" "${REPO_URL}"
++fi
++
++git push -u "${REMOTE_NAME}" "${BRANCH}"
+diff --git a/src/app/about/page.tsx b/src/app/about/page.tsx
+new file mode 100644
+index 0000000..5d313da
+--- /dev/null
++++ b/src/app/about/page.tsx
+@@ -0,0 +1,179 @@
++"use client";
+
+import { motion } from "framer-motion";
+import { FaAward, FaHeart, FaLeaf, FaUserMd } from "react-icons/fa";
+import { LuSparkles } from "react-icons/lu";
+
+const fadeUp = (delay = 0) => ({
+  initial: { opacity: 0, y: 36 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, amount: 0.2 },
+  transition: { duration: 0.8, delay },
+});
+
+const pillars = [
+  {
+    title: "Artistry meets biofunction",
+    copy: "Facially guided smile design, balanced occlusion, and tissue-friendly protocols for longevity.",
+  },
+  {
+    title: "Serene, considered hospitality",
+    copy: "Curated playlists, aromatherapy suites, and a concierge who remembers your preferences.",
+  },
+  {
+    title: "Transparent care",
+    copy: "Digital simulations, collaborative consults, and stepwise treatment plans you can trust.",
+  },
+];
+
+const doctors = [
+  {
+    name: "Dr. Anjana Krish",
+    title: "Lead Aesthetic Dentist",
+    bio: "Fellow in cosmetic and laser dentistry, blending smile symmetry with gentle chairside manner.",
+  },
+  {
+    name: "Dr. Rohan Patel",
+    title: "Implant & Full-Mouth Rehab",
+    bio: "Guided implantology expert with a focus on neuromuscular balance and biomimetic restorations.",
+  },
+];
+
+const experiences = [
+  "Private consultation lounges and warm towel rituals",
+  "Noise-cancelling headphones, Netflix, and curated playlists",
+  "Digital smile previews before any irreversible step",
+  "Dedicated post-care follow-ups and travel-friendly kits",
+  "Discreet scheduling and valet-style assistance",
+];
+
+export default function AboutPage() {
+  return (
+    <main className="relative overflow-hidden bg-black text-white">
+      <div className="absolute inset-0 bg-[url('/backgrounds/marble-bg.png')] bg-cover bg-center opacity-10 mix-blend-overlay" />
+      <div className="absolute inset-0 bg-gradient-to-b from-black via-[#0b0a07] to-black" />
+      <div className="absolute left-[-12%] top-28 h-72 w-72 rounded-full bg-[#D7B65F]/15 blur-3xl" />
+      <div className="absolute right-[-6%] bottom-10 h-80 w-80 rounded-full bg-[#7C6742]/20 blur-3xl" />
+
+      <div className="relative z-10 max-w-6xl mx-auto px-6 pt-28 pb-20 space-y-16">
+        <motion.section {...fadeUp(0)} className="text-center space-y-6">
+          <p className="text-xs uppercase tracking-[0.25em] text-[#D7B65F]">Our Story</p>
+          <h1 className="text-4xl md:text-5xl font-[var(--font-playfair)] font-semibold">An intimate, luxe smile studio</h1>
+          <p className="text-gray-200 max-w-3xl mx-auto">
+            AesthetiQ was born to merge spa-like calm with clinical excellence. We obsess over the smallest details—from
+            tempered lighting to precision ceramics—so your visits feel indulgent and your smile feels authentically you.
+          </p>
+        </motion.section>
+
+        <section className="grid md:grid-cols-3 gap-6">
+          {pillars.map((pillar, idx) => (
+            <motion.div
+              key={pillar.title}
+              {...fadeUp(idx * 0.08)}
+              className="rounded-3xl border border-[#D7B65F]/30 bg-gradient-to-br from-[#0f0d0a] to-[#18140f] p-6 shadow-[0_0_35px_rgba(0,0,0,0.35)]"
+            >
+              <div className="flex items-center gap-3 mb-3 text-[#F6E27A]">
+                <LuSparkles />
+                <span className="text-sm uppercase tracking-[0.2em] text-gray-300">Philosophy</span>
+              </div>
+              <h3 className="text-xl font-semibold text-white">{pillar.title}</h3>
+              <p className="text-gray-300 mt-2 leading-relaxed">{pillar.copy}</p>
+            </motion.div>
+          ))}
+        </section>
+
+        <motion.section {...fadeUp(0.1)} className="rounded-[32px] border border-[#D7B65F]/25 bg-white/5 backdrop-blur p-8">
+          <div className="grid lg:grid-cols-2 gap-8 items-center">
+            <div className="space-y-4">
+              <p className="text-xs uppercase tracking-[0.25em] text-[#D7B65F]">The Team</p>
+              <h2 className="text-3xl font-[var(--font-playfair)] font-semibold">Meet your smile artisans</h2>
+              <p className="text-gray-300">
+                Seasoned clinicians, collaborative consultations, and a concierge team to keep every appointment effortless
+                and discreet.
+              </p>
+            </div>
+            <div className="space-y-4">
+              {doctors.map((doc) => (
+                <div
+                  key={doc.name}
+                  className="rounded-2xl border border-white/10 bg-gradient-to-r from-black/60 to-[#1a1712] p-5 flex gap-4 items-start"
+                >
+                  <div className="h-12 w-12 rounded-full bg-[#D7B65F]/20 flex items-center justify-center text-[#F6E27A]">
+                    <FaUserMd />
+                  </div>
+                  <div>
+                    <p className="text-lg font-semibold">{doc.name}</p>
+                    <p className="text-sm text-gray-300">{doc.title}</p>
+                    <p className="text-gray-300 mt-2 leading-relaxed">{doc.bio}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </motion.section>
+
+        <motion.section {...fadeUp(0.15)} className="grid lg:grid-cols-2 gap-10 items-center">
+          <div className="rounded-[28px] border border-[#D7B65F]/25 bg-gradient-to-br from-[#1c1813] to-[#0f0c08] p-8 shadow-[0_0_40px_rgba(0,0,0,0.35)]">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-2xl bg-[#D7B65F]/20 flex items-center justify-center text-[#F6E27A]">
+                <FaAward className="text-xl" />
+              </div>
+              <div>
+                <p className="text-sm uppercase tracking-[0.2em] text-gray-300">Credentials</p>
+                <p className="text-2xl font-semibold">Residency-trained & award-winning</p>
+              </div>
+            </div>
+            <p className="text-gray-300 mt-3 leading-relaxed">
+              Global trainings, fellowships in cosmetic dentistry, and memberships across implantology and laser dentistry
+              ensure every protocol is evidence-led.
+            </p>
+            <div className="grid sm:grid-cols-2 gap-3 text-sm text-gray-200 mt-5">
+              <div className="rounded-2xl border border-white/10 bg-black/40 p-4">AACD inspired smile design</div>
+              <div className="rounded-2xl border border-white/10 bg-black/40 p-4">Digital dentistry certifications</div>
+              <div className="rounded-2xl border border-white/10 bg-black/40 p-4">Laser dentistry fellowship</div>
+              <div className="rounded-2xl border border-white/10 bg-black/40 p-4">Implantology masterclasses</div>
+            </div>
+          </div>
+          <div className="space-y-3">
+            <p className="text-xs uppercase tracking-[0.25em] text-[#D7B65F]">Experience cues</p>
+            <h2 className="text-3xl font-[var(--font-playfair)] font-semibold">Designed to calm, crafted to delight</h2>
+            <p className="text-gray-300">
+              We engineered a multisensory escape—warm textures, eucalyptus towels, and beverage rituals—so every visit feels
+              restorative.
+            </p>
+            <div className="space-y-3">
+              {experiences.map((item) => (
+                <div
+                  key={item}
+                  className="rounded-2xl border border-white/10 bg-white/5 p-4 flex items-center gap-3 text-gray-200"
+                >
+                  <FaHeart className="text-[#F6E27A]" />
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </motion.section>
+
+        <motion.section {...fadeUp(0.2)} className="rounded-[32px] border border-[#D7B65F]/20 bg-white/5 backdrop-blur p-8">
+          <div className="grid md:grid-cols-3 gap-6 text-center">
+            {["Holistic wellness lens", "Sterilised, scent-controlled suites", "Sustainable, metal-free options"].map(
+              (item) => (
+                <div
+                  key={item}
+                  className="rounded-2xl border border-white/10 bg-gradient-to-br from-black/70 to-[#18140f] p-6 space-y-3"
+                >
+                  <div className="mx-auto h-11 w-11 rounded-full bg-[#D7B65F]/20 flex items-center justify-center text-[#F6E27A]">
+                    <FaLeaf />
+                  </div>
+                  <p className="text-gray-100 font-semibold">{item}</p>
+                  <p className="text-gray-300 text-sm">Meticulous protocols that honour your body and the planet.</p>
+                </div>
+              ),
+            )}
+          </div>
+        </motion.section>
+      </div>
+    </main>
+  );
+}
+diff --git a/src/app/contact/page.tsx b/src/app/contact/page.tsx
+new file mode 100644
+index 0000000..6bfa03c
+--- /dev/null
++++ b/src/app/contact/page.tsx
+@@ -0,0 +1,116 @@
+"use client";
+
+import { motion } from "framer-motion";
+import { FaClock, FaMapMarkerAlt, FaPhoneAlt, FaWhatsapp } from "react-icons/fa";
+
+const fadeUp = (delay = 0) => ({
+  initial: { opacity: 0, y: 36 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, amount: 0.2 },
+  transition: { duration: 0.8, delay },
+});
+
+const contacts = [
+  {
+    icon: <FaPhoneAlt className="text-[#F6E27A]" />,
+    title: "Concierge Phone",
+    detail: "+91 94457 39688",
+    action: "Call now",
+    href: "tel:+919445739688",
+  },
+  {
+    icon: <FaWhatsapp className="text-[#F6E27A]" />,
+    title: "WhatsApp",
+    detail: "Instant chat with our smile concierge",
+    action: "Chat on WhatsApp",
+    href: "https://wa.me/919445739688",
+  },
+  {
+    icon: <FaMapMarkerAlt className="text-[#F6E27A]" />,
+    title: "Visit our studio",
+    detail: "AesthetiQ Dental Studio, Chennai",
+    action: "Open in Maps",
+    href: "https://maps.google.com",
+  },
+];
+
+const timings = [
+  "Mon - Fri: 9:00 AM - 8:00 PM",
+  "Sat: 10:00 AM - 6:00 PM",
+  "Sun: By private appointment",
+];
+
+export default function ContactPage() {
+  return (
+    <main className="relative overflow-hidden bg-black text-white">
+      <div className="absolute inset-0 bg-[url('/backgrounds/marble-bg.png')] bg-cover bg-center opacity-10 mix-blend-overlay" />
+      <div className="absolute inset-0 bg-gradient-to-b from-black via-[#0b0a07] to-black" />
+      <div className="absolute left-[-12%] top-16 h-72 w-72 rounded-full bg-[#D7B65F]/15 blur-3xl" />
+      <div className="absolute right-[-8%] bottom-4 h-80 w-80 rounded-full bg-[#7C6742]/20 blur-3xl" />
+
+      <div className="relative z-10 max-w-6xl mx-auto px-6 pt-28 pb-20 space-y-16">
+        <motion.section {...fadeUp(0)} className="text-center space-y-6">
+          <p className="text-xs uppercase tracking-[0.25em] text-[#D7B65F]">Book your visit</p>
+          <h1 className="text-4xl md:text-5xl font-[var(--font-playfair)] font-semibold">Speak with our smile concierge</h1>
+          <p className="text-gray-200 max-w-3xl mx-auto">
+            Share your goals and preferences—we’ll curate a private slot, prepare the suite, and send a custom plan before
+            you arrive.
+          </p>
+        </motion.section>
+
+        <section className="grid md:grid-cols-3 gap-6">
+          {contacts.map((contact, idx) => (
+            <motion.a
+              key={contact.title}
+              {...fadeUp(idx * 0.06)}
+              href={contact.href}
+              className="rounded-3xl border border-[#D7B65F]/30 bg-gradient-to-br from-[#0f0d0a] to-[#18140f] p-6 shadow-[0_0_35px_rgba(0,0,0,0.35)] hover:border-[#F6E27A]/60 transition"
+            >
+              <div className="flex items-center gap-3 mb-3 text-[#F6E27A]">
+                {contact.icon}
+                <span className="text-sm uppercase tracking-[0.2em] text-gray-300">{contact.title}</span>
+              </div>
+              <p className="text-xl font-semibold text-white">{contact.detail}</p>
+              <p className="text-sm text-[#D7B65F] mt-2">{contact.action}</p>
+            </motion.a>
+          ))}
+        </section>
+
+        <motion.section {...fadeUp(0.12)} className="rounded-[32px] border border-[#D7B65F]/30 bg-white/5 backdrop-blur p-8">
+          <div className="grid lg:grid-cols-2 gap-8 items-center">
+            <div className="space-y-4">
+              <p className="text-xs uppercase tracking-[0.25em] text-[#D7B65F]">Visit</p>
+              <h2 className="text-3xl font-[var(--font-playfair)] font-semibold">A calm, discreet lounge setting</h2>
+              <p className="text-gray-300">
+                Valet-style guidance, refreshments on arrival, and private suites ensure each appointment feels like a spa
+                ritual.
+              </p>
+              <div className="space-y-2 text-gray-200">
+                <p className="flex items-center gap-2">
+                  <FaMapMarkerAlt className="text-[#F6E27A]" /> AesthetiQ Dental Studio, Chennai
+                </p>
+                <p className="flex items-center gap-2">
+                  <FaClock className="text-[#F6E27A]" /> {timings[0]}
+                </p>
+              </div>
+            </div>
+            <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#1c1813] to-[#0f0c08] p-6 shadow-[0_0_40px_rgba(0,0,0,0.35)] space-y-3">
+              <p className="text-sm uppercase tracking-[0.2em] text-[#D7B65F]">Hours</p>
+              <div className="space-y-2 text-gray-200">
+                {timings.map((time) => (
+                  <div key={time} className="rounded-2xl border border-white/10 bg-black/40 p-3">
+                    {time}
+                  </div>
+                ))}
+              </div>
+              <p className="text-gray-300 text-sm">
+                Need a special slot? Our team arranges early-morning or late-evening appointments for international
+                travellers and bridal timelines.
+              </p>
+            </div>
+          </div>
+        </motion.section>
+      </div>
+    </main>
+  );
+}
+diff --git a/src/app/gallery/page.tsx b/src/app/gallery/page.tsx
+new file mode 100644
+index 0000000..c8a8f7c
+--- /dev/null
++++ b/src/app/gallery/page.tsx
+@@ -0,0 +1,129 @@
+"use client";
+
+import { motion } from "framer-motion";
+
+const fadeUp = (delay = 0) => ({
+  initial: { opacity: 0, y: 36 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, amount: 0.2 },
+  transition: { duration: 0.8, delay },
+});
+
+const gallery = [
+  { src: "/gallery/before-after1.jpg", label: "Smile Makeover" },
+  { src: "/gallery/before-after2.jpg", label: "Teeth Whitening" },
+  { src: "/gallery/before-after3.jpg", label: "Ceramic Veneers" },
+  { src: "/gallery/before-after4.jpg", label: "Gum Depigmentation" },
+  { src: "/gallery/before-after5.jpg", label: "Invisalign" },
+  { src: "/gallery/before-after6.jpg", label: "Bridal Dentistry" },
+];
+
+export default function GalleryPage() {
+  return (
+    <main className="relative overflow-hidden bg-black text-white">
+      <div className="absolute inset-0 bg-[url('/backgrounds/marble-bg.png')] bg-cover bg-center opacity-10 mix-blend-overlay" />
+      <div className="absolute inset-0 bg-gradient-to-b from-black via-[#0b0a07] to-black" />
+      <div className="absolute left-[-12%] top-24 h-72 w-72 rounded-full bg-[#D7B65F]/15 blur-3xl" />
+      <div className="absolute right-[-8%] bottom-10 h-80 w-80 rounded-full bg-[#7C6742]/20 blur-3xl" />
+
+      <div className="relative z-10 max-w-6xl mx-auto px-6 pt-28 pb-20 space-y-16">
+        <motion.section {...fadeUp(0)} className="text-center space-y-6">
+          <p className="text-xs uppercase tracking-[0.25em] text-[#D7B65F]">Results</p>
+          <h1 className="text-4xl md:text-5xl font-[var(--font-playfair)] font-semibold">Before & After Gallery</h1>
+          <p className="text-gray-200 max-w-3xl mx-auto">
+            Authentic transformations. No filters, no edits — only precision dentistry and natural artistry.
+          </p>
+        </motion.section>
+
+        <section className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {gallery.map((item, idx) => (
+            <motion.div
+              key={idx}
+              {...fadeUp(idx * 0.06)}
+              className="group rounded-3xl overflow-hidden border border-[#D7B65F]/30 bg-white/5 backdrop-blur shadow-[0_0_35px_rgba(0,0,0,0.35)] hover:border-[#F6E27A]/60 transition"
+            >
+              <div className="h-[260px] overflow-hidden">
+                <img
+                  src={item.src}
+                  alt={item.label}
+                  className="h-full w-full object-cover group-hover:scale-110 transition duration-700"
+                />
+              </div>
+              <div className="p-4">
+                <p className="text-sm text-[#F6E27A]">{item.label}</p>
+              </div>
+            </motion.div>
+          ))}
+        </section>
+      </div>
+    </main>
+  );
+}
+
+diff --git a/src/app/services/page.tsx b/src/app/services/page.tsx
+new file mode 100644
+index 0000000..1d0df57
+--- /dev/null
++++ b/src/app/services/page.tsx
+@@ -0,0 +1,168 @@
+"use client";
+
+import { motion } from "framer-motion";
+import { FaTooth, FaSmile, FaLightbulb, FaBrush } from "react-icons/fa";
+
+const fadeUp = (delay = 0) => ({
+  initial: { opacity: 0, y: 36 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, amount: 0.2 },
+  transition: { duration: 0.8, delay },
+});
+
+const services = [
+  {
+    icon: <FaSmile className="text-[#F6E27A] text-2xl" />,
+    title: "Smile Makeover",
+    desc: "Digital Smile Design, veneers, and minimally invasive composite artistry tailored to your facial harmony.",
+  },
+  {
+    icon: <FaTooth className="text-[#F6E27A] text-2xl" />,
+    title: "Dental Implants",
+    desc: "Guided implant surgery with 3D planning for precision, comfort, and long-term stability.",
+  },
+  {
+    icon: <FaBrush className="text-[#F6E27A] text-2xl" />,
+    title: "Teeth Whitening",
+    desc: "Clinical-grade whitening for instant brightness while protecting enamel integrity.",
+  },
+  {
+    icon: <FaLightbulb className="text-[#F6E27A] text-2xl" />,
+    title: "Gum Contouring",
+    desc: "Laser-assisted gum reshaping to balance proportions and enhance your smile line.",
+  },
+  {
+    icon: <FaTooth className="text-[#F6E27A] text-2xl" />,
+    title: "Full Mouth Rehabilitation",
+    desc: "Bite correction, neuromuscular balancing, and restorative revamps for chronic wear, fractures, or TMJ issues.",
+  },
+  {
+    icon: <FaBrush className="text-[#F6E27A] text-2xl" />,
+    title: "Bridal Dentistry",
+    desc: "Fast, aesthetic upgrades for brides & grooms — including whitening, polishing, and cosmetic balancing.",
+  },
+];
+
+export default function ServicesPage() {
+  return (
+    <main className="relative overflow-hidden bg-black text-white">
+      <div className="absolute inset-0 bg-[url('/backgrounds/marble-bg.png')] bg-cover bg-center opacity-10 mix-blend-overlay" />
+      <div className="absolute inset-0 bg-gradient-to-b from-black via-[#0b0a07] to-black" />
+      <div className="absolute left-[-12%] top-24 h-72 w-72 rounded-full bg-[#D7B65F]/15 blur-3xl" />
+      <div className="absolute right-[-8%] bottom-6 h-80 w-80 rounded-full bg-[#7C6742]/20 blur-3xl" />
+
+      <div className="relative z-10 max-w-6xl mx-auto px-6 pt-28 pb-20 space-y-16">
+        <motion.section {...fadeUp(0)} className="text-center space-y-6">
+          <p className="text-xs uppercase tracking-[0.25em] text-[#D7B65F]">Services</p>
+          <h1 className="text-4xl md:text-5xl font-[var(--font-playfair)] font-semibold">Treatments we offer</h1>
+          <p className="text-gray-200 max-w-3xl mx-auto">
+            Precision-driven, painless protocols that prioritise comfort, longevity, and natural aesthetics.
+          </p>
+        </motion.section>
+
+        <section className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {services.map((service, idx) => (
+            <motion.div
+              key={service.title}
+              {...fadeUp(idx * 0.08)}
+              className="rounded-3xl border border-[#D7B65F]/30 bg-gradient-to-br from-[#0f0d0a] to-[#18140f] p-6 shadow-[0_0_35px_rgba(0,0,0,0.35)] hover:border-[#F6E27A]/60 transition"
+            >
+              <div className="h-14 w-14 rounded-2xl bg-[#D7B65F]/20 flex items-center justify-center mb-4">
+                {service.icon}
+              </div>
+              <h3 className="text-xl font-semibold text-white">{service.title}</h3>
+              <p className="text-gray-300 mt-2 leading-relaxed">{service.desc}</p>
+            </motion.div>
+          ))}
+        </section>
+      </div>
+    </main>
+  );
+}
+diff --git a/src/components/Navbar.tsx b/src/components/Navbar.tsx
+index e1f91fb..bc3dd22 100644
+--- a/src/components/Navbar.tsx
++++ b/src/components/Navbar.tsx
+@@ -1,43 +1,102 @@
+ "use client";
+
+ import Link from "next/link";
+ import { useState } from "react";
+ import { motion, AnimatePresence } from "framer-motion";
+-import { HiMenu, HiX } from "react-icons/hi";
++import { HiMenu, HiX } from "react-icons/hi";
+
+ export default function Navbar() {
+-  return (
+-    <nav className="fixed top-0 left-0 w-full z-50 bg-black/70 backdrop-blur-lg border-b border-white/10">
+-      <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center text-white">
+-        <Link href="/" className="font-semibold tracking-wide text-lg">AesthetiQ Dental</Link>
+-
+-        <div className="hidden md:flex gap-8">
+-          <Link href="/" className="hover:text-[#F6E27A] transition">Home</Link>
+-          <Link href="/services" className="hover:text-[#F6E27A] transition">Services</Link>
+-          <Link href="/gallery" className="hover:text-[#F6E27A] transition">Gallery</Link>
+-          <Link href="/about" className="hover:text-[#F6E27A] transition">About</Link>
+-          <Link href="/contact" className="hover:text-[#F6E27A] transition">Contact</Link>
+-        </div>
+-
+-        <div className="md:hidden">
+-          <button><HiMenu size={26} /></button>
+-        </div>
+-      </div>
+-    </nav>
+-  );
++  const [open, setOpen] = useState(false);
++
++  return (
++    <nav className="fixed top-0 left-0 w-full z-50 bg-black/70 backdrop-blur-lg border-b border-white/10">
++      <div className="max-w-6xl mx-auto px-6 py-3 flex justify-between items-center text-white">
++        <Link href="/" className="font-semibold tracking-wider text-lg">
++          AesthetiQ Dental
++        </Link>
++
++        {/* Desktop */}
++        <div className="hidden md:flex gap-8">
++          {["/", "/services", "/gallery", "/about", "/contact"].map((p, i) => (
++            <Link
++              key={p}
++              href={p}
++              className="hover:text-[#F6E27A] transition tracking-wide"
++            >
++              {p === "/" ? "Home" : p.replace("/", "").charAt(0).toUpperCase() + p.slice(2)}
++            </Link>
++          ))}
++        </div>
++
++        {/* Mobile toggle */}
++        <div className="md:hidden">
++          <button onClick={() => setOpen(!open)}>
++            {open ? <HiX size={28} /> : <HiMenu size={28} />}
++          </button>
++        </div>
++      </div>
++
++      {/* Mobile Menu */}
++      <AnimatePresence>
++        {open && (
++          <motion.div
++            initial={{ opacity: 0, y: -12 }}
++            animate={{ opacity: 1, y: 0 }}
++            exit={{ opacity: 0, y: -12 }}
++            transition={{ duration: 0.3 }}
++            className="md:hidden bg-black/90 backdrop-blur-lg border-b border-white/10"
++          >
++            <div className="px-6 py-6 flex flex-col gap-6 text-white text-lg">
++              {[
++                { href: "/", label: "Home" },
++                { href: "/services", label: "Services" },
++                { href: "/gallery", label: "Gallery" },
++                { href: "/about", label: "About" },
++                { href: "/contact", label: "Contact" },
++              ].map((link) => (
++                <Link
++                  key={link.href}
++                  href={link.href}
++                  className="hover:text-[#F6E27A] transition"
++                  onClick={() => setOpen(false)}
++                >
++                  {link.label}
++                </Link>
++              ))}
++            </div>
++          </motion.div>
++        )}
++      </AnimatePresence>
++    </nav>
++  );
+ }
+
+diff --git a/src/components/GoldenParticles.tsx b/src/components/GoldenParticles.tsx
+new file mode 100644
+index 0000000..34c3b89
+--- /dev/null
++++ b/src/components/GoldenParticles.tsx
+@@ -0,0 +1,75 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+
+export default function GoldenParticles() {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d")!;
+    let w = (canvas.width = window.innerWidth);
+    let h = (canvas.height = window.innerHeight);
+
+    const particles = Array.from({ length: 70 }, () => ({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      r: Math.random() * 2 + 1,
+      dx: (Math.random() - 0.5) * 0.4,
+      dy: (Math.random() - 0.5) * 0.4,
+    }));
+
+    const draw = () => {
+      ctx.clearRect(0, 0, w, h);
+      particles.forEach((p) => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(247, 222, 129, 0.8)";
+        ctx.fill();
+
+        p.x += p.dx;
+        p.y += p.dy;
+
+        if (p.x < 0 || p.x > w) p.dx *= -1;
+        if (p.y < 0 || p.y > h) p.dy *= -1;
+      });
+      requestAnimationFrame(draw);
+    };
+
+    draw();
+    const handleResize = () => {
+      w = canvas.width = window.innerWidth;
+      h = canvas.height = window.innerHeight;
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="fixed inset-0 pointer-events-none opacity-40"
+    />
+  );
+}
+
+diff --git a/src/components/BeforeAfter.tsx b/src/components/BeforeAfter.tsx
+new file mode 100644
+index 0000000..bbf1b22
+--- /dev/null
++++ b/src/components/BeforeAfter.tsx
+@@ -0,0 +1,97 @@
+"use client";
+
+import { useState } from "react";
+
+export default function BeforeAfter() {
+  const [value, setValue] = useState(50);
+
+  return (
+    <div className="relative w-full max-w-4xl mx-auto my-10">
+      <div className="relative overflow-hidden rounded-3xl border border-[#D7B65F]/30">
+        <img
+          src="/gallery/before-after1.jpg"
+          className="w-full h-auto block"
+          style={{ clipPath: `inset(0 ${100 - value}% 0 0)` }}
+        />
+        <img
+          src="/gallery/before-after2.jpg"
+          className="w-full h-auto block absolute top-0 left-0"
+          style={{ clipPath: `inset(0 0 0 ${value}%)` }}
+        />
+      </div>
+
+      <input
+        type="range"
+        min={0}
+        max={100}
+        value={value}
+        onChange={(e) => setValue(Number(e.target.value))}
+        className="w-full mt-4 cursor-pointer"
+      />
+    </div>
+  );
+}
+
+diff --git a/src/app/layout.tsx b/src/app/layout.tsx
+index abc1234..1fe9986 100644
+--- a/src/app/layout.tsx
++++ b/src/app/layout.tsx
+@@ -1,23 +1,41 @@
+ import "./globals.css";
+ import Navbar from "../components/Navbar";
+ import WhatsAppFloat from "../components/WhatsAppFloat";
+ import StickyCTA from "../components/StickyCTA";
+-import PageTransition from "@/components/PageTransition";
+
+ export const metadata = {
+   title: "AesthetiQ Dental | Luxe Smile Studio",
+   description:
+     "Premium smile design, gum care & aesthetic dentistry in Chennai.",
+ };
+
+ export default function RootLayout({ children }: { children: React.ReactNode }) {
+   return (
+     <html lang="en">
+       <body
+-        className="relative min-h-screen"
+-        style={{
+-          backgroundImage: "url('/backgrounds/marble-bg.png')",
+-          backgroundSize: "cover",
+-          backgroundPosition: "center",
+-          backgroundRepeat: "no-repeat",
+-          backgroundAttachment: "fixed",
+-        }}
++        className="relative min-h-screen bg-black text-white"
+       >
++        <Navbar />
++        <div className="relative z-10">{children}</div>
++        <WhatsAppFloat />
++        <StickyCTA />
+       </body>
+     </html>
+   );
+ }
+
+diff --git a/src/app/page.tsx b/src/app/page.tsx
+index 123aaa5..acccf55 100644
+--- a/src/app/page.tsx
++++ b/src/app/page.tsx
+@@ -1,12 +1,80 @@
+ "use client";
+
+ import { motion } from "framer-motion";
++import GoldenParticles from "../components/GoldenParticles";
++import BeforeAfter from "../components/BeforeAfter";
+
+ export default function HomePage() {
+   return (
+     <main className="relative overflow-hidden bg-black text-white">
++      <GoldenParticles />
++
+       <div className="relative max-w-6xl mx-auto px-6 pt-40 pb-28 space-y-16">
+         <motion.section
+           initial={{ opacity: 0, y: 36 }}
+           animate={{ opacity: 1, y: 0 }}
+           transition={{ duration: 0.8 }}
+           className="space-y-6 text-center"
+         >
+           <p className="text-xs uppercase tracking-[0.25em] text-[#D7B65F]">
+             Smile Luxury Redefined
+           </p>
+           <h1 className="text-4xl md:text-6xl font-[var(--font-playfair)] font-semibold">
+             AesthetiQ Dental Studio
+           </h1>
+           <p className="text-gray-300 max-w-2xl mx-auto">
+             Where precision dentistry meets serene, spa-inspired comfort.
+           </p>
+         </motion.section>
+
++        <motion.div
++          initial={{ opacity: 0, y: 20 }}
++          animate={{ opacity: 1, y: 0 }}
++          transition={{ duration: 0.9, delay: 0.2 }}
++        >
++          <BeforeAfter />
++        </motion.div>
++
+         <motion.section
+           initial={{ opacity: 0, y: 36 }}
+           animate={{ opacity: 1, y: 0 }}
+           transition={{ duration: 0.8, delay: 0.3 }}
+           className="grid md:grid-cols-3 gap-8"
+         >
+           {[
+             "Smile Makeovers",
+             "Ceramic Veneers",
+             "Full-Mouth Rehabilitation",
+           ].map((item) => (
+             <div
+               key={item}
+               className="rounded-3xl border border-[#D7B65F]/30 bg-gradient-to-br from-[#0f0d0a] to-[#18140f] p-8 text-center shadow-[0_0_35px_rgba(0,0,0,0.35)]"
+             >
+               <p className="text-xl font-semibold text-white mb-2">{item}</p>
+               <p className="text-gray-300">Premium, precise & painless.</p>
+             </div>
+           ))}
+         </motion.section>
+       </div>
+     </main>
+   );
+}
